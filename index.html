@@ -14,7 +14,7 @@
       }
 
       h1 {
-        color: #fff;
+        color: #000000;
         text-shadow: 2px 2px 4px #000;
         margin-top: 20px;
       }
@@ -33,7 +33,7 @@
         font-size: 20px;
         font-weight: bold;
         background-color: #00ff08;
-        color: rgb(0, 0, 0);
+        color: rgb(255, 255, 255);
         border: none;
         border-radius: 5px;
         cursor: pointer;
@@ -41,7 +41,7 @@
       }
 
       #spinButton:disabled {
-        background-color: #73ff00;
+        background-color: #ff0000;
         cursor: not-allowed;
       }
 
@@ -52,41 +52,13 @@
         color: #000; /* Chữ đen */
         margin-top: 20px;
         padding: 15px;
-        background: #ee0000;
+        background: #73ff00;
         border: 2px solid #000;
         border-radius: 10px;
         max-width: 80%;
         margin: 20px auto;
         word-wrap: break-word;
         box-shadow: 0px 5px 15px rgba(0, 0, 0, 0.3);
-      }
-
-      #prizesList {
-        text-align: center;
-        margin: 20px 0;
-        padding: 10px;
-        border: 2px solid #000;
-        border-radius: 10px;
-        background-color: #fff;
-        color: #000;
-      }
-
-      #prizesList h2 {
-        font-size: 24px;
-        color: #000;
-        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.3);
-      }
-
-      #prizesList ul {
-        list-style: none;
-        padding: 0;
-        font-size: 18px;
-        color: #000;
-      }
-
-      #prizesList ul li {
-        padding: 5px 0;
-        font-weight: bold;
       }
     </style>
   </head>
@@ -112,21 +84,32 @@
         <li>Chúc bạn may mắn 🍀</li>
       </ul>
     </div>
-
     <script>
-      const canvas = document.getElementById("wheelCanvas");
-      const ctx = canvas.getContext("2d");
-      const spinButton = document.getElementById("spinButton");
-      const resultDiv = document.getElementById("result");
-      const radius = canvas.width / 2;
-      let spinning = false;
-
-      // Kiểm tra trạng thái từ localStorage
-      let hasSpun = localStorage.getItem("hasSpun") === "true";
-      if (hasSpun) {
-        spinButton.disabled = true;
-        resultDiv.textContent = "Bạn đã quay rồi! Hãy thử lại lần sau.";
+      // Hàm tạo UUID
+      function generateUUID() {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(
+          /[xy]/g,
+          function (c) {
+            const r = (Math.random() * 16) | 0;
+            const v = c === "x" ? r : (r & 0x3) | 0x8;
+            return v.toString(16);
+          }
+        );
       }
+
+      // Kiểm tra hoặc tạo ID duy nhất
+      function getOrCreateBrowserID() {
+        let browserID = localStorage.getItem("browserID");
+        if (!browserID) {
+          browserID = generateUUID();
+          localStorage.setItem("browserID", browserID);
+        }
+        return browserID;
+      }
+
+      const browserID = getOrCreateBrowserID();
+      const spinData = JSON.parse(localStorage.getItem("spinData")) || {};
+      const hasSpun = !!spinData[browserID];
 
       const prizes = [
         { name: "Xe ô tô trên 50K $ 🚗", chance: 2 },
@@ -152,9 +135,19 @@
         "#ff9800",
         "#795548",
       ];
-      const anglePerSegment = (2 * Math.PI) / prizes.length;
+      const canvas = document.getElementById("wheelCanvas");
+      const ctx = canvas.getContext("2d");
+      const radius = canvas.width / 2;
+      const spinButton = document.getElementById("spinButton");
+      const resultDiv = document.getElementById("result");
+
+      if (hasSpun) {
+        spinButton.disabled = true;
+        resultDiv.textContent = "Bạn đã quay rồi! Hãy thử lại lần sau.";
+      }
 
       function drawWheel() {
+        const anglePerSegment = (2 * Math.PI) / prizes.length;
         for (let i = 0; i < prizes.length; i++) {
           ctx.beginPath();
           ctx.moveTo(radius, radius);
@@ -165,26 +158,25 @@
             i * anglePerSegment,
             (i + 1) * anglePerSegment
           );
-          ctx.fillStyle = colors[i % colors.length];
+          ctx.fillStyle = `hsl(${(i * 360) / prizes.length}, 80%, 70%)`;
           ctx.fill();
           ctx.closePath();
 
-          // Add text
           ctx.save();
           ctx.translate(radius, radius);
           ctx.rotate((i + 0.5) * anglePerSegment);
           ctx.textAlign = "right";
-          ctx.fillStyle = "#000"; // Màu chữ đen
-          ctx.font = "bold 14px Arial"; // Chữ nhỏ hơn
+          ctx.fillStyle = "#000";
+          ctx.font = "bold 14px Arial";
           ctx.fillText(prizes[i].name, radius - 20, 10);
           ctx.restore();
         }
       }
 
       function spinWheel() {
-        if (spinning) return;
-        spinning = true;
+        if (hasSpun) return;
         spinButton.disabled = true;
+        resultDiv.textContent = "Đang quay...";
 
         const totalChance = prizes.reduce(
           (sum, prize) => sum + prize.chance,
@@ -202,19 +194,18 @@
           }
         }
 
-        const spinAngle = Math.random() * 360 + 360 * 8; // Vòng quay ít nhất 8 vòng
+        const spinAngle = Math.random() * 360 + 360 * 5;
         let currentAngle = 0;
         const spinInterval = setInterval(() => {
-          currentAngle += 5; // Tăng tốc độ quay
+          currentAngle += 10;
           canvas.style.transform = `rotate(${currentAngle}deg)`;
-
           if (currentAngle >= spinAngle) {
             clearInterval(spinInterval);
-            spinning = false;
             resultDiv.textContent = `🎉 Chúc mừng! Bạn đã trúng: ${selectedPrize.name}`;
-            localStorage.setItem("hasSpun", "true"); // Lưu trạng thái đã quay
+            spinData[browserID] = true;
+            localStorage.setItem("spinData", JSON.stringify(spinData));
           }
-        }, 20); // Quay chậm hơn
+        }, 20);
       }
 
       spinButton.addEventListener("click", spinWheel);
